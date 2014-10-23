@@ -1,0 +1,115 @@
+---
+title: "Model Regression Class - Project Work"
+author: "R.Marrese"
+date: "21/10/2014"
+output: html_document
+---
+***
+```{r,echo=FALSE,message=FALSE}
+## load necessary libraries
+library(knitr);library(datasets);library(sm); data(mtcars); attach(mtcars)
+knit_hooks$set(inline = function(x) {
+    if (is.numeric(x)) knitr:::format_sci(x, 'latex') else x
+ })
+```
+###**1. Management Summary**
+
+What is better in terms of mileage: automatic or manual trasmission car? In other words is the gear type relevant for car performance and at what extent?.
+Using a dataset of 32 car models circulating in 1973-1974 a data analysis has been carried out by mean of Regression Modeling.
+The work shows a statistical difference in terms of gear type. Furthermore car efficiency depend also to  some additional factors - weight, acceleration force, also in interaction.
+According to the analyzed data.ase we can affirm that manual car shows better result in efficiency, particularly joined or in he transmission type–and other factors about the car show a high probability of being more strongly related to the mileage.
+ model on the dataset with the efficiency as the outcome so we could quantify the weight of each factor in the car efficiency.
+
+The content of this paper is as follows:
+
+* An prelimiary exploratory Data Analysis (par.2)
+
+* A rational about Model Regression carried out (par.3)
+
+* Supporting figures (par.4.1)
+
+* The code used during the execution is outlined in par 4.2.
+
+
+###**2. Exploratory Analysis**
+####**2.1 Basic summary of data**
+The  dataset mtcars describe 11 characteristics of 32 car models. 
+The distribution of model grouped by transmission type (am) has different shape (see Appendix Fig.1.a), where the manual type A first exploratory analysis shows a gain in efficiency in manual cars over automatic ones , and this difference is also evident in the boxplot comparation (see Fig.1.b).
+
+Manual cars had a mean efficiency of 24.39 miles per gallon (sd= 6.16) while automatic models had a mean of 17.15 (sd=3.83).
+
+
+####**2.2 Data comparison using Confidence Interval and Hypotesis tests**
+Considering te different means, it would be useful to test if these mean are acceptable: 
+Hypothesing that this sample comes from a normal distribution, a subset of the population would have a t-student distribution. To confirm the difference in efficiency of both car models, may be useful to apply a simples t-test for rejecting the null hypothesis that both sets have the same efficiency. The test rejected the null hypothesis with a 95% confidence (p-value = 0.0014) (see results in 4.2.2)
+
+###**3. Regression Models**
+Since it is requested to find a possible relation of efficiency (mpg) with transmission type (am), the latter must be present in any model to be found.
+####**3.1 Simple Linear Regression**
+A simple linear regression is tempted to find a direct and unique correlation with transmission type.
+```{r, echo=FALSE,eval=TRUE}
+fit0=lm(mpg~am, data=mtcars)
+summary(fit0)$coefficients
+```
+The coefficient of 7.245 indicates that a manual transmission should imply an mpg increase of 7.245 miles per gallon. The t value and residual variation shows also that the model is a poor fit (see 4.2.4). Even the Adjusted R-squared value (0.3385) indicates a poor explaination of variance of dependente variable mpg. Regarding the regression process the regressor am has beenn taken as is since a factorization is useless.
+
+####**3.3 Multivariate Linear Regression**
+
+#####**3.3.1 Model Selection Strategy**
+
+#####**3.3.2 Model Validation**
+
+###**4. Model Interpretation**
+
+###**4. Attachments**
+
+####**4.1. Figures**
+```{r, echo=FALSE,eval=TRUE}
+par(mfrow = c(1,2), mar = c(2, 2, 2, 2)) # set layout
+# plot densities
+am.f <- factor(mtcars$am, levels= c(0,1),
+                 labels= c("auto", "manual"))
+sm.density.compare(mtcars$mpg, mtcars$am, xlab="Miles per gallon")
+title(main="Fig.1.a Mileage distr. by trasm.")
+labels=levels(am.f)
+colors=c("red","green")
+legend("topright",lwd=2,lty=c(1,1),col=colors,labels)
+# boxplot
+boxplot(mpg~am,data=mtcars,ylab="mpg", main="Fig.1.b Avg efficiency by transm.",varwidth=TRUE, col=c("red", "green"),names=c("Automatic","Manual"))
+par(mfrow = c(1,1)) # reset layout
+```
+
+####**4.2. Code output**
+#####**4.2.1 Summary**
+```{r, echo=FALSE,message=FALSE}
+head(mtcars, 4)
+```
+#####**4.2.2 t test of means**
+```{r, echo=FALSE,eval=TRUE}
+t.test(mpg[am==0], mpg[am==1])
+```
+#####**4.2.3 means by transmission type**
+```{r, echo=FALSE,eval=TRUE}
+tapply(mpg, am, mean)
+```
+####**4.2.4 Single Regression**
+```{r, echo=FALSE,eval=TRUE}
+fit0=lm(mpg~am, data=mtcars)
+summary(fit0)$coefficients
+```
+####**Multiple regression**
+```{r, echo=FALSE,eval=TRUE}
+fitall=lm(mpg ~ ., data=mtcars)
+summary(fitall)
+anova (fit0,fitall)
+```
+
+#### **Multiple Regression with interaction**
+```{r, echo=FALSE,eval=TRUE}
+fitint=lm(mpg ~ am+wt+qsec+am*wt, data=mtcars)
+summary(fitint) ## seems to be the best model (highest adjusted R-squared)
+anova(fitint,fitall)
+```
+
+####**4.3. Code **
+The Rmd code of this paper can be found for furher analysis at:

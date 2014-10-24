@@ -2,23 +2,55 @@
 title: "Model Regression Class - Project Work"
 author: "R.Marrese"
 date: "21/10/2014"
-output: html_document
+output: word_document
 ---
 ***
 ```{r,echo=FALSE,message=FALSE}
 ## load necessary libraries
-library(knitr);library(datasets);library(sm); data(mtcars); attach(mtcars)
+library(knitr);library(datasets);library(sm);library(leaps)
+library(car);library(MASS)
+data(mtcars); attach(mtcars)
 knit_hooks$set(inline = function(x) {
     if (is.numeric(x)) knitr:::format_sci(x, 'latex') else x
  })
+## Functions
+## Calculate relative importance of regressor
+relweights <- function(fit,...){
+  R <- cor(fit$model)
+  nvar <- ncol(R)
+  rxx <- R[2:nvar, 2:nvar]
+  rxy <- R[2:nvar, 1]
+  svd <- eigen(rxx)
+  evec <- svd$vectors
+  ev <- svd$values
+  delta <- diag(sqrt(ev))
+  lambda <- evec %*% delta %*% t(evec)
+  lambdasq <- lambda ^ 2
+  beta <- solve(lambda) %*% rxy
+  rsquare <- colSums(beta ^ 2)
+  rawwgt <- lambdasq %*% beta ^ 2
+  import <- (rawwgt / rsquare) * 100
+  lbls <- names(fit$model[2:nvar])
+  rownames(import) <- lbls
+  colnames(import) <- "Weights"
+  barplot(t(import),names.arg=lbls,
+          ylab="% of R-Square",
+          xlab="Predictor Variables",
+          main="Fig.2a Relative Importance \n of Predictor Variables",
+          sub=paste("R-Square=", round(rsquare, digits=4)),
+          ...)
+          abline(h = median(import[,]), lwd = 2, lty = 2)
+  return(import)
+}
 ```
+
 ###**1. Management Summary**
 
 What is better in terms of mileage: automatic or manual trasmission car? In other words is the gear type relevant for car performance and at what extent?.
 Using a dataset of 32 car models circulating in 1973-1974 a data analysis has been carried out by mean of Regression Modeling.
 The work shows a statistical difference in terms of gear type. Furthermore car efficiency depend also to  some additional factors - weight, acceleration force, also in interaction.
-According to the analyzed data.ase we can affirm that manual car shows better result in efficiency, particularly joined or in he transmission type–and other factors about the car show a high probability of being more strongly related to the mileage.
- model on the dataset with the efficiency as the outcome so we could quantify the weight of each factor in the car efficiency.
+Based on the available data we can affirm that manual car shows better result in efficiency, particularly joined or in interaction with the transmission type. Other factors related to model characteristics show a high probability of being more strongly related to the mileage.
+A regression model on the dataset with the efficiency as the outcome has been carried out, so we could quantify the weight of each factor in the model efficiency.
 
 The content of this paper is as follows:
 
@@ -33,7 +65,7 @@ The content of this paper is as follows:
 
 ###**2. Exploratory Analysis**
 ####**2.1 Basic summary of data**
-The  dataset mtcars describe 11 characteristics of 32 car models. 
+The  dataset **mtcars** describes `r ncol(mtcars)` characteristics of `r nrow(mtcars)` car models. 
 The distribution of model grouped by transmission type (am) has different shape (see Appendix Fig.1.a), where the manual type A first exploratory analysis shows a gain in efficiency in manual cars over automatic ones , and this difference is also evident in the boxplot comparation (see Fig.1.b).
 
 Manual cars had a mean efficiency of 24.39 miles per gallon (sd= 6.16) while automatic models had a mean of 17.15 (sd=3.83).
@@ -45,38 +77,80 @@ Hypothesing that this sample comes from a normal distribution, a subset of the p
 
 ###**3. Regression Models**
 Since it is requested to find a possible relation of efficiency (mpg) with transmission type (am), the latter must be present in any model to be found.
+
 ####**3.1 Simple Linear Regression**
-A simple linear regression is tempted to find a direct and unique correlation with transmission type.
-```{r, echo=FALSE,eval=TRUE}
+A simple linear regression is tempted to find a direct and unique correlation with transmission type: 
+```{r, echo=TRUE,eval=TRUE}
 fit0=lm(mpg~am, data=mtcars)
 summary(fit0)$coefficients
 ```
-The coefficient of 7.245 indicates that a manual transmission should imply an mpg increase of 7.245 miles per gallon. The t value and residual variation shows also that the model is a poor fit (see 4.2.4). Even the Adjusted R-squared value (0.3385) indicates a poor explaination of variance of dependente variable mpg. Regarding the regression process the regressor am has beenn taken as is since a factorization is useless.
+The coefficient of am variable indicates that a manual transmission should imply an increase of 7.245 miles per gallon. The t value and residual variation shows also that the model is a poor fit. Even the Adjusted R-squared value (0.3385) indicates a poor explaination of variance of dependent variable mpg and, with a 95% confidence, the random interval [3.64,10.85] covers the parameter (see 4.2.4). Note also that the predictor **am**  has been taken as it is since the number of levels let the factorization useless.
 
 ####**3.3 Multivariate Linear Regression**
+```{r, echo=TRUE,eval=TRUE}
+fitall = lm(mpg ~ am*., data=mtcars)
+```
+Building a raw model including the interaction between regressors it is noted that the resulting **R2** statistics is considerably high, explaining **90.31** of the dependent variance **mpg** (see 4.2.5). In order to avoid the increasing of standard error of the coefficients (variance inflation phenomenon) should further investigate if there are a simpler model (involving less regressor) with a reasonable outcome. 
 
 #####**3.3.1 Model Selection Strategy**
+A firt analysis may be conducted on the relative importance of predictor variables (see Fig.2a), where the dotted lines indicates the median of contribution among variables. Notable variables are weigth, disp, horse power, no of cylinders and finally gear type. This gives a first hint on which regressors may be eligeble ad predictor. Secondly Fig.2.b illustrates the gain in Adjusted R2 taking in consideration repetedly each regressor. Note that only some regressors are included for 0.9 onward, namely am, wt and innteraction regressors am:wt, am:qsec am:carb. This make sense as acceleration (qsec) and no of carbureators (carb) are strictly - and negatively- correlated with consumption.
+
+In searching for balance between a best fit and a small variance inflation, we used a stepwise model selection with abovementioned variables, excluding other linear correlation variables. 
+```{r, echo=TRUE,eval=FALSE}
+minimum.fit <- lm(mpg ~ 1, data=mtcars)  # minimum possible regression model
+final.model <- step(minimum.fit, direction="forward", scope=(~ am + wt+qsec+am:(wt + qsec + carb)))
+```
+The selected model coefficients and its confidence interval can be seen in the 4.2.6. The variables selected were the interactions between transmission type (am) with weight and acceleration, and all of them were statistically significant being their confidence interval not including 0.
+
+```{r, echo=TRUE,eval=TRUE}
+final.model=lm(mpg ~ am+wt+qsec+am*wt, data=mtcars)
+```
 
 #####**3.3.2 Model Validation**
+The typical for evaluating the statistical assumptions in a regression analysis is the residual analysis (see Fig. 4.2.7):
+* Normality, the residual values should be normally distributed with a mean of 0 (Upper rigth graph)
+* Independence
+* Linearity, the model should capture all the systematic variance present in the data, leaving nothing but random noise. (Upper left graph )
+* Homoscedasticity, constant variance assumption, the points in the Scale-Location graph (bottom left graph) should be a random band around a horizontal line (see bottom rigth graph.
+
+Looking at the plot it seems that the residuals are normally distributed, and that the residuals vs fitted value are almost on the horizontal red line. The same is for Homoscedasticity, looking at the bottom right graph it seems that the assumption is met.
+A quantitative evaluation is performed by two statistical tests, the Shapiro-Wilk and the Kolmogorov-Smirnov test, which test if the residual distribution is really normally distributed against the alternative hypothesis that they are not. 
+Both tests failed to reject the normal distribution assumption (p-value = 0.08263, p-value = 0.3239) respectively.
 
 ###**4. Model Interpretation**
+This is the final model obtained from the mtcars dataset:
+```{r, echo=FALSE,eval=TRUE}
+summary(final.model)
+```
+The main variables are Weight,Gear Type,Time to Reach ¼ Mile (Acceleration) and the interactions between Gear Type and Weight. While the weight has a negative effect on the gas efficiency, the increase in time to reach ¼ mile seems to improve the efficiency.
+Analysing the weight, if we keep the acceleration constant, for each unit increase, which is equal to 1000 lbs, the number of miles per galon will decrease -2.937 cars.
+Regarding the time for reaching ¼ mile, for each additional second the car takes to run ¼ mile, it will make 1.017 more miles. 
+These outcome make sense in a physical world. The heavier the car, the more gas is necessary to transform in energy to move.
+
+In any case, we can  assume that manual cars are better than automatic ones under particular circustances which involves other relevant factors as the weigth and the acceleration as declared by the factory.
 
 ###**4. Attachments**
 
 ####**4.1. Figures**
 ```{r, echo=FALSE,eval=TRUE}
-par(mfrow = c(1,2), mar = c(2, 2, 2, 2)) # set layout
-# plot densities
+par(mfrow = c(1,2), mar = c(2, 2, 2, 1)) # set layout
 am.f <- factor(mtcars$am, levels= c(0,1),
                  labels= c("auto", "manual"))
 sm.density.compare(mtcars$mpg, mtcars$am, xlab="Miles per gallon")
-title(main="Fig.1.a Mileage distr. by trasm.")
+title(main="Fig.1a Mileage distr. by trasm.")
 labels=levels(am.f)
 colors=c("red","green")
 legend("topright",lwd=2,lty=c(1,1),col=colors,labels)
 # boxplot
 boxplot(mpg~am,data=mtcars,ylab="mpg", main="Fig.1.b Avg efficiency by transm.",varwidth=TRUE, col=c("red", "green"),names=c("Automatic","Manual"))
+par(mfcol = c(1,1)) # reset layout
+par(mfrow = c(1,2), mar = c(2, 2, 2, 1)) # set layout
+# plot densities
+rivar=relweights(fitall, col="lightgrey")
+leaps <-regsubsets(mpg ~ am*., data=mtcars, nbest=4)
+plot(leaps, scale="adjr2", cex.lab=0.5)
 par(mfrow = c(1,1)) # reset layout
+
 ```
 
 ####**4.2. Code output**
@@ -95,22 +169,38 @@ tapply(mpg, am, mean)
 ####**4.2.4 Single Regression**
 ```{r, echo=FALSE,eval=TRUE}
 fit0=lm(mpg~am, data=mtcars)
-summary(fit0)$coefficients
+summary(fit0)
+# summary(fit0)$adj.r.squared
+confint(fit0)
 ```
-####**Multiple regression**
+####**4.2.5 Multiple regression**
 ```{r, echo=FALSE,eval=TRUE}
-fitall=lm(mpg ~ ., data=mtcars)
-summary(fitall)
+fitall=lm(mpg ~ am*., data=mtcars)
+# summary(fitall)
 anova (fit0,fitall)
 ```
 
-#### **Multiple Regression with interaction**
+####**4.2.6 Stepwise Regression**
+```{r, echo=TRUE,eval=TRUE}
+minimum.fit <- lm(mpg ~ 1, data=mtcars)  # minimum possible regression model
+final.model <- step(minimum.fit, direction="forward", scope=(~ am + wt+qsec+am:(wt + qsec + carb)))
+a=data.frame(cbind(confint(final.model),final.model$coefficient))
+names(a)=c("2.5 %", "97.5 %", "Coeff")
+a
+```
+####**4.2.7 Model Validation**
 ```{r, echo=FALSE,eval=TRUE}
-fitint=lm(mpg ~ am+wt+qsec+am*wt, data=mtcars)
-summary(fitint) ## seems to be the best model (highest adjusted R-squared)
-anova(fitint,fitall)
+par(mar=c(5.1,4.1,4.1,2.1))
+par(mfrow=c(2,2))
+plot(final.model)
+fitresid <- rstandard(final.model)
+shapiro.test(fitresid)
+ks.test(fitresid, "pnorm",mean(fitresid),sd(fitresid))
 ```
 
 ####**4.3. Code **
-The Rmd code of this paper can be found for furher analysis at:
+
+The complete Rmd code of this paper can be found for furher analysis at:
 https://github.com/marrese/ModelRegression/edit/master/Project%20Work
+
+
